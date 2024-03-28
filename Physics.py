@@ -14,7 +14,7 @@ VEL_EPSILON = phylib.PHYLIB_VEL_EPSILON
 DRAG = phylib.PHYLIB_DRAG
 MAX_TIME = phylib.PHYLIB_MAX_TIME
 MAX_OBJECTS = phylib.PHYLIB_MAX_OBJECTS
-FRAMEINTERVAL = 0.01
+FRAMEINTERVAL = 0.05
 
 # SVG constants
 HEADER = """
@@ -115,7 +115,10 @@ class RollingBall( phylib.phylib_object ):
 
     def svg(self):
         this = self.obj.rolling_ball
-        return """ <circle cx="%d" cy="%d" r="%d" fill="%s" />\n""" % (this.pos.x, this.pos.y, BALL_RADIUS, BALL_COLOURS[this.number])
+        if this.number == 0:
+            return """ <circle onmousedown="clickBall()" id = "qball" cx="%d" cy="%d" r="%d" fill="%s" />\n""" % (this.pos.x, this.pos.y, BALL_RADIUS, BALL_COLOURS[this.number])  
+        else:  
+            return """ <circle cx="%d" cy="%d" r="%d" fill="%s" />\n""" % (this.pos.x, this.pos.y, BALL_RADIUS, BALL_COLOURS[this.number])
 
 
 ################################################################################
@@ -279,7 +282,7 @@ class Table( phylib.phylib_table ):
         new = Table();
         for ball in self:
             if isinstance( ball, RollingBall ):
-                # create4 a new ball with the same number as the old ball
+                # create a new ball with the same number as the old ball
                 new_ball = RollingBall( ball.obj.rolling_ball.number,
                                         Coordinate(0,0),
                                         Coordinate(0,0),
@@ -308,7 +311,7 @@ class Table( phylib.phylib_table ):
         the phylib_print_table function from A1Test1.c.
         """
         result = "";    # create empty string
-        result += "time = %6.9f;\n" % self.time;    # append time
+        result += "time = %6.2f;\n" % self.time;    # append time
         for i,obj in enumerate(self): # loop over all objects and number them
             result += "  [%02d] = %s\n" % (i,obj);  # append object description
         return result;  # return the string
@@ -333,6 +336,9 @@ class Table( phylib.phylib_table ):
 
         for i in self:
             if isinstance(i,StillBall):
+                if i.obj.still_ball.number == 0:
+                    cueball = i
+            elif isinstance(i, RollingBall):
                 if i.obj.still_ball.number == 0:
                     cueball = i
         
@@ -440,7 +446,7 @@ class Database:
         if dataEntry == None:
             return None
 
-        newTable.time = dataEntry[8]
+        newTable.time = dataEntry[9]
 
         while dataEntry != None:
             
@@ -639,10 +645,13 @@ Player1Name: %s\nPlayer2Name: %s\n"""%(self.gameID, self.gameName, self.player1N
                 #save the shot in shottable
                 self.db.saveShotTable(tableID,shotID)
             
-            
 
             table = newTable
             newTable = table.segment()
+
+        tableID = self.db.writeTable(table)
+        self.db.saveShotTable(tableID, shotID)
+
 
         self.db.conn.commit()
         return shotID
@@ -656,9 +665,10 @@ Player1Name: %s\nPlayer2Name: %s\n"""%(self.gameID, self.gameName, self.player1N
 
             tableID = self.frameSet[i][0]
             temp = self.db.readTable(tableID)
+
             if(temp != None):
-                table = temp
-                svgList.append(table.svg())
+                table = tableID
+                svgList.append(temp.svg())
 
         response = [table, svgList]
 
@@ -671,7 +681,6 @@ Player1Name: %s\nPlayer2Name: %s\n"""%(self.gameID, self.gameName, self.player1N
         
         self.frameSet = data
         return len(data)
-
 
 
 

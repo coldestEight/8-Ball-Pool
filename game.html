@@ -101,31 +101,37 @@
 
                 $.ajax({
                     url: "/frames",
-                    data: {"shotID": shotID},
-                    async:false,
-                    type:"POST"
-                }).done(function(v){
-
-                    setFrames(v)
-                
-
-                    $.ajax({
-                    url: "/anim",
-                    data: {},
+                    data: { "shotID": shotID },
                     async: false,
                     type: "POST"
+                }).done(function (v) {
+
+                    setFrames(v)
+
+
+                    $.ajax({
+                        url: "/anim",
+                        async: false,
+                        type: "GET"
                     }).done(function (v) {
 
+                        console.log("parsing json")
                         data = JSON.parse(v)
 
-                        for(let i = 0; i < data.frameCount; i++){
-                            setTimeout(function(){$("div.svg-container").html(data.frames[i])}, i*2)
+                        for (let i = 0; i < data.frameCount; i++) {
+                            setTimeout(function () { $("div.svg-container").html(data.frames[i]) }, i * 30)
                         }
-                        
+
                     })
                 })
             })
 
+            console.log("done generating frames")
+            $.ajax({
+                        url: "/checkTable",
+                        async: true,
+                        type: "GET"
+                    })
 
         }
 

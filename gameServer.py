@@ -12,12 +12,14 @@ def nudge():
 class serverHandler(BaseHTTPRequestHandler):
 
     table = p.Table()
+    prevTableBalls = None
+    playerTurn = 1
     game = p.Game(None,"test","playerOne","playerTwo")
 
     # Silences HTTP server POST and GET messages in terminal
     #   Borrowed from: https://stackoverflow.com/questions/53422825/how-do-i-prevent-a-python-server-from-writing-to-the-terminal-window
-    def log_message(self, format, *args):
-        pass
+    # def log_message(self, format, *args):
+    #     pass
 
     def do_GET(self):
         url = urlparse(self.path)
@@ -32,6 +34,7 @@ class serverHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             self.wfile.write(bytes(content, "utf-8"))
+            self.playerTurn = self.playerTurn + 1
             fp.close()
         
         elif url.path in ["/setupBoard"]:
@@ -70,6 +73,43 @@ class serverHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(bytes(content,"utf-8"))
 
+        elif url.path in ["/anim"]:
+
+            response = self.game.getFrames()
+
+            if response[0] != None:
+                self.table = self.game.db.readTable(response[0])
+                
+            svg = response[1]
+
+            content = {
+                "frameCount" : len(svg),
+                "frames": svg
+            }
+
+            contentJSON = json.dumps(content)
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/JSON")
+            self.end_headers()
+            self.wfile.write(contentJSON.encode("utf-8"))
+            
+        elif url.path in ["/checkTable"]:
+            #check for cueball, look for missing balls, if high and low not assigned assign based on what was sunk
+            #if cueball gone (no rolling ball #0), place still ball in middle of table
+                #if cueball there then convert rolling ball to still ball
+
+            ballList = []
+
+            for item in self.table:
+
+                if isinstance(item, p.RollingBall):
+                    ballList.append(item.obj.rolling_ball.number)
+    
+                elif isinstance(item, p.StillBall):
+                    ballList.append(item.obj.still_ball.number)
+
+            
     def do_POST(self):
         url = urlparse(self.path)
 
@@ -86,31 +126,7 @@ class serverHandler(BaseHTTPRequestHandler):
             self.send_header("Content-length", len(str(shotID)))
             self.end_headers()
             self.wfile.write(bytes(str(shotID),"utf-8"))
-
-
-        elif url.path in ["/anim"]:
-
-            data = cgi.FieldStorage(fp=self.rfile, headers=self.headers,environ={'REQUEST_METHOD': 'POST'})
-
-            response = self.game.getFrames()
-
-            if response[0] != None:
-                self.table = response[0]
-
-            svg = response[1]
-
-            content = {
-                "frameCount" : len(svg),
-                "frames": svg
-            }
-
-            contentJSON = json.dumps(content)
-
-            self.send_response(200)
-            self.send_header("Content-type", "application/JSON")
-            self.end_headers()
-            self.wfile.write(contentJSON.encode("utf-8"))
-
+            
         elif url.path in ["/frames"]:
             data = cgi.FieldStorage(fp=self.rfile, headers=self.headers,environ={'REQUEST_METHOD': 'POST'})
             shotID = int(data["shotID"].value)
@@ -122,7 +138,7 @@ class serverHandler(BaseHTTPRequestHandler):
             self.send_header("Content-length", len(str(frames)))
             self.end_headers()
             self.wfile.write(bytes(str(frames),"utf-8"))
-
+            
 if __name__ == "__main__":
 
     if len(sys.argv) == 1:
