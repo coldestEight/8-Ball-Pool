@@ -4,6 +4,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 import Physics as p
 import random
+import json
 
 def nudge():
     return random.uniform( -1.5, 1.5 )
@@ -12,6 +13,11 @@ class serverHandler(BaseHTTPRequestHandler):
 
     table = p.Table()
     game = p.Game(None,"test","playerOne","playerTwo")
+
+    # Silences HTTP server POST and GET messages in terminal
+    #   Borrowed from: https://stackoverflow.com/questions/53422825/how-do-i-prevent-a-python-server-from-writing-to-the-terminal-window
+    def log_message(self, format, *args):
+        pass
 
     def do_GET(self):
         url = urlparse(self.path)
@@ -73,17 +79,49 @@ class serverHandler(BaseHTTPRequestHandler):
             velx = float(data["velx"].value)
             vely = float(data["vely"].value)
 
-            print(velx)
-            print(vely)
-            
-            print(self.table)
-
-            self.game.shoot(self.game.gameName,self.game.player1Name,self.table,0,-1000)
+            shotID = self.game.shoot(self.game.gameName,self.game.player1Name,self.table,velx,vely)
 
             self.send_response(200)
-        
+            self.send_header("Content-type", "text/plain")
+            self.send_header("Content-length", len(str(shotID)))
+            self.end_headers()
+            self.wfile.write(bytes(str(shotID),"utf-8"))
 
-                
+
+        elif url.path in ["/anim"]:
+
+            data = cgi.FieldStorage(fp=self.rfile, headers=self.headers,environ={'REQUEST_METHOD': 'POST'})
+
+            response = self.game.getFrames()
+
+            if response[0] != None:
+                self.table = response[0]
+
+            svg = response[1]
+
+            content = {
+                "frameCount" : len(svg),
+                "frames": svg
+            }
+
+            contentJSON = json.dumps(content)
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/JSON")
+            self.end_headers()
+            self.wfile.write(contentJSON.encode("utf-8"))
+
+        elif url.path in ["/frames"]:
+            data = cgi.FieldStorage(fp=self.rfile, headers=self.headers,environ={'REQUEST_METHOD': 'POST'})
+            shotID = int(data["shotID"].value)
+
+            frames = self.game.getNumFrames(shotID)
+
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain")
+            self.send_header("Content-length", len(str(frames)))
+            self.end_headers()
+            self.wfile.write(bytes(str(frames),"utf-8"))
 
 if __name__ == "__main__":
 

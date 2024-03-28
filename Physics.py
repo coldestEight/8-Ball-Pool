@@ -415,6 +415,10 @@ class Database:
                         PRIMARY KEY (SHOTID AUTOINCREMENT),
                         FOREIGN KEY(PLAYERID) REFERENCES Player,
                         FOREIGN KEY(GAMEID) REFERENCES Game)""")
+        
+        cur.execute("""CREATE INDEX IF NOT EXISTS ballIndex ON Ball(BallID)""")
+        cur.execute("""CREATE INDEX IF NOT EXISTS TableIndex ON TTable(TableID) """)
+        cur.execute("""CREATE INDEX IF NOT EXISTS ballTableIndex ON BallTable(BallID,TableID) """)
 
         cur.close()
         self.conn.commit()
@@ -429,12 +433,14 @@ class Database:
 
         tableData = None
 
-        tableData = cur.execute("SELECT * from  BallTable, Ball WHERE(BallTable.TABLEID = %d AND Ball.BALLID = BallTable.BALLID)"%(tableID+1))
+        tableData = cur.execute("SELECT * from  BallTable, Ball, TTable WHERE(BallTable.TABLEID = %d AND Ball.BALLID = BallTable.BALLID AND TTable.TABLEID = %d)"%(tableID+1, tableID+1))
 
         dataEntry = tableData.fetchone()
 
         if dataEntry == None:
             return None
+
+        newTable.time = dataEntry[8]
 
         while dataEntry != None:
             
@@ -451,10 +457,6 @@ class Database:
                 newTable += toAdd
 
             dataEntry = tableData.fetchone()
-        
-        time = cur.execute("SELECT TIME FROM TTable WHERE(TTable.TABLEID = %d)"%(tableID+1)).fetchone()
-
-        newTable.time = time[0]
 
         cur.close()
     
@@ -565,6 +567,7 @@ class Game:
     player1Name = None
     player2Name = None
     db = None
+    frameSet = []
 
     def __init__(self, gameID=None, gameName=None, player1Name=None, player2Name=None):
 
@@ -624,25 +627,52 @@ Player1Name: %s\nPlayer2Name: %s\n"""%(self.gameID, self.gameName, self.player1N
         while newTable != None:
         
             elapsedTime = newTable.time - startTime - table.time
-            numFrames = int(elapsedTime/FRAMEINTERVAL)
+            numFrames = int(elapsedTime//FRAMEINTERVAL)
 
             for i in range(numFrames):
                 #call roll on table (use frame*framinterval), save in new obj
                 workingTable = table.roll(i*FRAMEINTERVAL)
                 #set time of the result to start time + frame*frameinterval
-                workingTable.time = table.time + (FRAMEINTERVAL*i)
+                workingTable.time = round(table.time + (FRAMEINTERVAL*i),2)
                 #save the result table with writetable
                 tableID = self.db.writeTable(workingTable)
                 #save the shot in shottable
                 self.db.saveShotTable(tableID,shotID)
             
-            self.db.conn.commit()
+            
 
             table = newTable
             newTable = table.segment()
-            
 
+        self.db.conn.commit()
         return shotID
+    
+    def getFrames(self):
+
+        svgList = []
+        table = None
+
+        for i in range(len(self.frameSet)):
+
+            tableID = self.frameSet[i][0]
+            temp = self.db.readTable(tableID)
+            if(temp != None):
+                table = temp
+                svgList.append(table.svg())
+
+        response = [table, svgList]
+
+        return response
+
+    def getNumFrames(self, shotID):
+        cur = self.db.conn.cursor()
+
+        data = cur.execute("SELECT TTable.TableID FROM TTable, TableShot WHERE (TableShot.ShotID = %d AND TTable.TableID = TableShot.TableID)"%(shotID+1)).fetchall()
+        
+        self.frameSet = data
+        return len(data)
+
+
 
 
 def calcAcceleration(x,y):

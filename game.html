@@ -1,107 +1,155 @@
 <!DOCTYPE html>
 <html>
 
-    <head>
+<head>
 
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
-        <style>
-            .svg-container {
-                width: 400px;
-                height: auto;
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+    <style>
+        .svg-container {
+            width: 400px;
+            height: auto;
+        }
+    </style>
+
+    <script>
+
+        track = false
+        clicked = false
+        processing = false
+        cuex = 0
+        cuey = 0
+        time = 0
+        svg = ""
+        shotID = 0
+        numFrames = 0
+
+        function trackon(event) {
+            track = true;
+        }
+
+        function trackoff(event) {
+
+            if (clicked == true) {
+
+                x = 10 * (cuex - event.pageX)
+                y = 10 * (cuey - event.pageY)
+
+                shoot(x, y)
             }
-        </style>
-
-        <script>
 
             track = false
             clicked = false
-            processing = false
-            cuex = 0;
-            cuey = 0;
+            $("line:first").remove()
+        }
 
-            function trackon(event) {
-                track = true;
-            }
+        function clickBall() {
+            clicked = true
+            cuex = $("#qball").attr("cx") / 3.5 + 9
+            cuey = $("#qball").attr("cy") / 3.5
+        }
 
-            function trackoff(event) {
+        function trackit(event) {
+            if (track && clicked) {
 
-                if(clicked == true){
-
-                    x =  cuex - event.pageX
-                    y =  cuey - event.pageY
-
-                    shoot(10,20)
-                }
-
-                track = false
-                clicked = false
+                svg = $("svg:first")
                 $("line:first").remove()
+
+                svgX = event.pageX
+                svgY = event.pageY
+
+                x = 10 * (cuex - event.pageX)
+                y = 10 * (cuey - event.pageY)
+
+                line = document.createElementNS("http://www.w3.org/2000/svg", 'line')
+
+                line.setAttribute("x1", (cuex - 9) * 3.5)
+                line.setAttribute("y1", cuey * 3.5)
+                line.setAttribute("x2", (svgX - 8) * 3.5)
+                line.setAttribute("y2", (svgY - 8) * 3.5)
+                line.setAttribute("stroke", "#edbc6d")
+                line.setAttribute("stroke-width", '20')
+                line.setAttribute("stroke-linecap", "round")
+
+                console.log(x)
+                console.log(y)
+
+                $(svg).append(line)
+
             }
-
-            function clickBall(){
-                clicked = true
-                cuex = $("#qball").attr("cx")/3.5 + 9
-                cuey = $("#qball").attr("cy")/3.5
-            }
-
-            function trackit(event) {
-                if (track && clicked) {
-
-                    svg = $("svg:first")
-                    $("line:first").remove()
-
-                    svgX = event.pageX
-                    svgY = event.pageY
-
-                    line = document.createElementNS("http://www.w3.org/2000/svg", 'line')
-
-                    line.setAttribute("x1", (cuex-9)*3.5)
-                    line.setAttribute("y1", cuey*3.5)
-                    line.setAttribute("x2", (svgX-8)*3.5)
-                    line.setAttribute("y2", (svgY-8)*3.5)
-                    line.setAttribute("stroke", "#edbc6d")
-                    line.setAttribute("stroke-width", '20')
-                    line.setAttribute("stroke-linecap", "round")
+        }
 
 
-                    $(svg).append(line)
-                    
-                }
-            }
+        function setupBoard() {
+            value = $.get("/setupBoard")
+            value.then(function (v) {
+                $("div.svg-container").html(v)
+            })
+        }
 
+        function shoot(xvel, yvel) {
 
-            function setupBoard(){
-                value = $.get("/setupBoard")
-                value.then(function(v){
-                    $("div.svg-container").html(v)
-                })
-            }
+            //$.post("/shoot", {velx: xvel, vely: yvel})
+            //watch here if desync issues happen (forshadowing maybe?)
+            $.ajax({
+                url: "/shoot",
+                data: { "velx": xvel, "vely": yvel },
+                async: false,
+                type: "POST"
+            }).done(function (v) {
 
-            function shoot(xvel, yvel){
+                setShotID(v)
 
-                    //$.post("/shoot", {velx: xvel, vely: yvel})
-                    //watch here if desync issues happen (forshadowing maybe?)
-                    $.ajax({url: "/shoot",
-                            data: {"velx": xvel, "vely": yvel},
-                            async: true,
-                            type: "POST"})
+                $.ajax({
+                    url: "/frames",
+                    data: {"shotID": shotID},
+                    async:false,
+                    type:"POST"
+                }).done(function(v){
 
-                    console.log("bingus")
-
-
-                    
-                }
+                    setFrames(v)
                 
 
-        </script>
+                    $.ajax({
+                    url: "/anim",
+                    data: {},
+                    async: false,
+                    type: "POST"
+                    }).done(function (v) {
 
-    </head>
+                        data = JSON.parse(v)
 
-    <body onload="setupBoard()">
+                        for(let i = 0; i < data.frameCount; i++){
+                            setTimeout(function(){$("div.svg-container").html(data.frames[i])}, i*2)
+                        }
+                        
+                    })
+                })
+            })
 
-        <div class="svg-container" onmousedown="trackon(event);" onmouseup="trackoff(event);" onmousemove="trackit(event);"></div>
 
-    </body>
+        }
+
+        function setShotID(sID) {
+
+            shotID = sID
+        }
+
+        function setFrames(fr) {
+
+            numFrames = fr
+        }
+
+
+    </script>
+
+</head>
+
+<body onload="setupBoard()">
+
+    <div class="svg-container" onmousedown="trackon(event);" onmouseup="trackoff(event);" onmousemove="trackit(event);">
+    </div>
+
+</body>
 
 
 </html>
