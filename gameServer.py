@@ -9,17 +9,20 @@ import json
 def nudge():
     return random.uniform( -1.5, 1.5 )
 
-class serverHandler(BaseHTTPRequestHandler):
-
-    table = p.Table()
+class gameServer(HTTPServer):
+    table = None
     prevTableBalls = None
+    high = 0
+    low = 0
     playerTurn = 1
     game = p.Game(None,"test","playerOne","playerTwo")
 
+class serverHandler(BaseHTTPRequestHandler):
+
     # Silences HTTP server POST and GET messages in terminal
     #   Borrowed from: https://stackoverflow.com/questions/53422825/how-do-i-prevent-a-python-server-from-writing-to-the-terminal-window
-    # def log_message(self, format, *args):
-    #     pass
+    def log_message(self, format, *args):
+        pass
 
     def do_GET(self):
         url = urlparse(self.path)
@@ -34,51 +37,59 @@ class serverHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             self.wfile.write(bytes(content, "utf-8"))
-            self.playerTurn = self.playerTurn + 1
             fp.close()
         
         elif url.path in ["/setupBoard"]:
 
-            displace = 480
+            if self.server.table == None:
 
-            for i in range(1,16):
-                if i <= 5:
-                    pos = p.Coordinate(displace + i*70 + nudge(), displace+nudge())
-                
-                elif i <= 9:
-                    pos = p.Coordinate(displace + 30 + (i-5)*70 + nudge(), displace + 60 + nudge())
-                
-                elif i <= 12:
-                    pos = p.Coordinate(displace + 60 + (i-9)*70 + nudge(), displace + 120 + nudge())
+                self.server.table = p.Table()
+                displace = 480
 
-                elif i <= 14:
-                    pos = p.Coordinate(displace + 90 + (i-12)*70 + nudge(), displace + 180 + nudge())
+                for i in range(1,16):
+                    if i <= 5:
+                        pos = p.Coordinate(displace + i*70 + nudge(), displace+nudge())
+                    
+                    elif i <= 9:
+                        pos = p.Coordinate(displace + 30 + (i-5)*70 + nudge(), displace + 60 + nudge())
+                    
+                    elif i <= 12:
+                        pos = p.Coordinate(displace + 60 + (i-9)*70 + nudge(), displace + 120 + nudge())
 
-                elif i == 15:
-                    pos = p.Coordinate(displace + 120 + (i-14)*70 + nudge(), displace + 240 + nudge())
+                    elif i <= 14:
+                        pos = p.Coordinate(displace + 90 + (i-12)*70 + nudge(), displace + 180 + nudge())
 
-                
-                b = p.StillBall(i, pos)
-                self.table.add_object(b)
+                    elif i == 15:
+                        pos = p.Coordinate(displace + 120 + (i-14)*70 + nudge(), displace + 240 + nudge())
 
-            pos = p.Coordinate(displace + 120 + 60, 2000)
-            b = p.StillBall(0,pos)
-            self.table.add_object(b)
+                    
+                    b = p.StillBall(i, pos)
+                    self.server.table.add_object(b)
 
-            content = self.table.svg()
+                pos = p.Coordinate(displace + 120 + 60, 2000)
+                b = p.StillBall(0,pos)
+                self.server.table.add_object(b)
+
+            content ={
+                "player1Name": self.server.game.player1Name,
+                "player2Name": self.server.game.player2Name,
+                "turn": self.server.playerTurn,
+                "table": self.server.table.svg()
+            }
+
+            contentJSON = json.dumps(content)
 
             self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.send_header("Content-length", len(content))
+            self.send_header("Content-type", "application/JSON")
             self.end_headers()
-            self.wfile.write(bytes(content,"utf-8"))
+            self.wfile.write(contentJSON.encode("utf-8"))
 
         elif url.path in ["/anim"]:
 
-            response = self.game.getFrames()
+            response = self.server.game.getFrames()
 
             if response[0] != None:
-                self.table = self.game.db.readTable(response[0])
+                self.server.table = self.server.game.db.readTable(response[0])
                 
             svg = response[1]
 
@@ -95,13 +106,11 @@ class serverHandler(BaseHTTPRequestHandler):
             self.wfile.write(contentJSON.encode("utf-8"))
             
         elif url.path in ["/checkTable"]:
-            #check for cueball, look for missing balls, if high and low not assigned assign based on what was sunk
-            #if cueball gone (no rolling ball #0), place still ball in middle of table
-                #if cueball there then convert rolling ball to still ball
 
             ballList = []
+            gameOver = 0
 
-            for item in self.table:
+            for item in self.server.table:
 
                 if isinstance(item, p.RollingBall):
                     ballList.append(item.obj.rolling_ball.number)
@@ -109,7 +118,98 @@ class serverHandler(BaseHTTPRequestHandler):
                 elif isinstance(item, p.StillBall):
                     ballList.append(item.obj.still_ball.number)
 
-            
+            if 0 not in ballList:
+                self.server.table.add_object(p.StillBall(0,p.Coordinate(p.TABLE_WIDTH/2,p.TABLE_LENGTH/2)))
+
+            if self.server.high == 0:
+                for i in range(1,8):
+                    if i not in ballList:
+                        if self.server.playerTurn == 1:
+                            self.server.low = 1
+                            self.server.high = 2
+                        else:
+                            self.server.low = 2
+                            self.server.high = 1
+
+                if self.server.high == 0:
+                    for i in range(9,16):
+                        if i not in ballList:
+                            if self.server.playerTurn == 1:
+                                self.server.high = 1
+                                self.server.low = 2
+                            else:
+                                self.server.high = 2
+                                self.server.low = 1
+
+            if 8 not in ballList:
+                highBallExist = False
+                lowBallExist = False
+
+                for i in range(len(ballList)):
+                    if ballList[i] in range(1,8):
+                        lowBallExist = True
+                    elif ballList[i] in range(9,16):
+                        highBallExist = True
+                
+                if highBallExist == False:
+                    gameOver = self.server.high
+                elif lowBallExist == False:
+                    gameOver = self.server.low
+                else:
+                    if self.server.playerTurn == 1:
+                        gameOver = 2
+                    else:
+                        gameOver = 1
+
+
+            if self.server.prevTableBalls != None:
+                sunkBalls =list(set(ballList).symmetric_difference(set(self.server.prevTableBalls)))
+                highBallExist = False
+                lowBallExist = False
+
+                for i in range(len(sunkBalls)):
+                    if sunkBalls[i] in range(1,8):
+                        lowBallExist = True
+                    elif sunkBalls[i] in range(9,16):
+                        highBallExist = True
+                
+                if highBallExist == True and self.server.high == self.server.playerTurn:
+                    if self.server.playerTurn == 1:
+                        self.server.playerTurn = 2
+                    else:
+                        self.server.playerTurn = 1
+
+                elif lowBallExist == True and self.server.low == self.server.playerTurn:
+                    if self.server.playerTurn == 1:
+                        self.server.playerTurn = 2
+                    else:
+                        self.server.playerTurn = 1
+
+
+
+            if self.server.playerTurn == 1:
+                self.server.playerTurn = 2
+            else:
+                self.server.playerTurn = 1
+
+            content = {
+                "ballList": ballList,
+                "gameOver": gameOver,
+                "turn": self.server.playerTurn,
+                "high": self.server.high,
+                "low": self.server.low,
+                "table": self.server.table.svg()
+            }
+
+            self.server.prevTableBalls = ballList
+
+            contentJSON = json.dumps(content)
+            self.send_response(200)
+            self.send_header("Content-type", "application/JSON")
+            self.end_headers()
+            self.wfile.write(contentJSON.encode("utf-8"))
+
+                    
     def do_POST(self):
         url = urlparse(self.path)
 
@@ -119,7 +219,7 @@ class serverHandler(BaseHTTPRequestHandler):
             velx = float(data["velx"].value)
             vely = float(data["vely"].value)
 
-            shotID = self.game.shoot(self.game.gameName,self.game.player1Name,self.table,velx,vely)
+            shotID = self.server.game.shoot(self.server.game.gameName,self.server.game.player1Name,self.server.table,velx,vely)
 
             self.send_response(200)
             self.send_header("Content-type", "text/plain")
@@ -131,7 +231,7 @@ class serverHandler(BaseHTTPRequestHandler):
             data = cgi.FieldStorage(fp=self.rfile, headers=self.headers,environ={'REQUEST_METHOD': 'POST'})
             shotID = int(data["shotID"].value)
 
-            frames = self.game.getNumFrames(shotID)
+            frames = self.server.game.getNumFrames(shotID)
 
             self.send_response(200)
             self.send_header("Content-type", "text/plain")
@@ -145,6 +245,6 @@ if __name__ == "__main__":
         print("No Port Provided")
         exit()
     
-    httpd = HTTPServer( ( 'localhost', int(sys.argv[1]) ), serverHandler )
+    httpd = gameServer( ( 'localhost', int(sys.argv[1]) ), serverHandler )
     print( "Server listing in port:  ", int(sys.argv[1]) )
     httpd.serve_forever()

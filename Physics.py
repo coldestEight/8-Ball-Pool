@@ -18,14 +18,17 @@ FRAMEINTERVAL = 0.05
 
 # SVG constants
 HEADER = """
-<svg width="100%" height="100%" viewBox="-25 -25 1400 2750"
+<svg width="100%" height="100%" viewBox="-425 -425 2200 3600"
  xmlns="http://www.w3.org/2000/svg" 
  xmlns:xlink="http://www.w3.org/1999/xlink">
  <rect width="1350" height="2700" x="0" y="0" fill="#5ab54c" />"""
 
 #C0D0C0
 
-FOOTER = """</svg>\n"""
+FOOTER = """<rect width="400" height="2750" x="-425" y="-25" fill="white"></rect> 
+ <rect width="400" height="2750" x="1375" y="-25" fill="white"></rect> 
+ <rect width="2200" height="400" x="-425" y="-423" fill="white"></rect> 
+ <rect width="2200" height="400" x="-425" y="2723" fill="white"></rect>  </svg>\n"""
 
 ################################################################################
 # the standard colours of pool balls
@@ -627,12 +630,11 @@ Player1Name: %s\nPlayer2Name: %s\n"""%(self.gameID, self.gameName, self.player1N
         cueball.obj.rolling_ball.vel = Coordinate(xvel,yvel)
         cueball.obj.rolling_ball.acc = acc
 
-        startTime = table.time
         newTable = table.segment()
 
         while newTable != None:
         
-            elapsedTime = newTable.time - startTime - table.time
+            elapsedTime = newTable.time - table.time
             numFrames = int(elapsedTime//FRAMEINTERVAL)
 
             for i in range(numFrames):

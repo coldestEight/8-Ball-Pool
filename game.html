@@ -6,8 +6,19 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
     <style>
         .svg-container {
-            width: 400px;
+            width: 500px;
             height: auto;
+            border: 5px solid black;
+            float: left;
+        }
+
+        .menu{
+            float: left;
+            padding: 15px;
+        }
+
+        .turn-indicator{
+            font-size: 25px;
         }
     </style>
 
@@ -22,6 +33,11 @@
         svg = ""
         shotID = 0
         numFrames = 0
+        player1Name = ""
+        player2Name = ""
+        playerTurn = 0
+        high = 0
+        low = 0
 
         function trackon(event) {
             track = true;
@@ -31,8 +47,8 @@
 
             if (clicked == true) {
 
-                x = 10 * (cuex - event.pageX)
-                y = 10 * (cuey - event.pageY)
+                x = 15 * (cuex - (event.pageX-50))
+                y = 15 * (cuey - (event.pageY-50))
 
                 shoot(x, y)
             }
@@ -64,14 +80,11 @@
 
                 line.setAttribute("x1", (cuex - 9) * 3.5)
                 line.setAttribute("y1", cuey * 3.5)
-                line.setAttribute("x2", (svgX - 8) * 3.5)
-                line.setAttribute("y2", (svgY - 8) * 3.5)
+                line.setAttribute("x2", (svgX-100)*(4.3))
+                line.setAttribute("y2", (svgY-100)*4.3)
                 line.setAttribute("stroke", "#edbc6d")
                 line.setAttribute("stroke-width", '20')
                 line.setAttribute("stroke-linecap", "round")
-
-                console.log(x)
-                console.log(y)
 
                 $(svg).append(line)
 
@@ -82,8 +95,47 @@
         function setupBoard() {
             value = $.get("/setupBoard")
             value.then(function (v) {
-                $("div.svg-container").html(v)
+                data = JSON.parse(v)
+
+                player1Name = data.player1Name
+                player2Name = data.player2Name
+                playerTurn = data.turn
+
+                $("div.svg-container").html(data.table)  
+                setTurn()              
             })
+        }
+
+        function setTurn(){
+
+            if(playerTurn == 1){
+                if(high == 1){
+
+                    text = player1Name + "(High)"
+                }
+                else if (low == 1){
+
+                    text = player1Name + "(Low)"
+                }
+                else{
+                    text  = player1Name
+                }
+            }
+            else{
+                if(high == 2){
+
+                    text = player2Name + "(High)"
+                }
+                else if (low == 2){
+
+                    text = player2Name + "(Low)"
+                }
+                else{
+                    text  = player2Name
+                }
+            }
+
+            $("p.turn-indicator").html(text)
         }
 
         function shoot(xvel, yvel) {
@@ -98,6 +150,7 @@
             }).done(function (v) {
 
                 setShotID(v)
+                console.log("shotID " + shotID)
 
                 $.ajax({
                     url: "/frames",
@@ -107,6 +160,7 @@
                 }).done(function (v) {
 
                     setFrames(v)
+                    console.log("numFrames: "+numFrames)
 
 
                     $.ajax({
@@ -115,24 +169,31 @@
                         type: "GET"
                     }).done(function (v) {
 
-                        console.log("parsing json")
                         data = JSON.parse(v)
 
+                        console.log(data)
                         for (let i = 0; i < data.frameCount; i++) {
                             setTimeout(function () { $("div.svg-container").html(data.frames[i]) }, i * 30)
                         }
 
+                        setTimeout(function(){
+                            $.ajax({
+                            url: "/checkTable",
+                            async: false,
+                            type: "GET"
+                            }).done(function(v){
+                                tableData = JSON.parse(v)
+                                console.log(tableData)
+                                playerTurn = tableData.turn
+                                high = tableData.high
+                                low = tableData.low
+                                setTurn()
+                                $("div.svg-container").html(tableData.table)    
+                            })}, data.frameCount*30);
+
                     })
                 })
             })
-
-            console.log("done generating frames")
-            $.ajax({
-                        url: "/checkTable",
-                        async: true,
-                        type: "GET"
-                    })
-
         }
 
         function setShotID(sID) {
@@ -154,6 +215,21 @@
 
     <div class="svg-container" onmousedown="trackon(event);" onmouseup="trackoff(event);" onmousemove="trackit(event);">
     </div>
+
+    <div class="menu">
+        
+        <p class="turn-indicator">Player Name's Turn! </p>
+
+        <p>High Balls Remaining: img</p>
+
+        <p>Low Balls Remaining: img</p>
+
+        <button>Reset</button>
+        <button>Go Back</button>
+
+    </div>
+        
+
 
 </body>
 
