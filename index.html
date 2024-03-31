@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&family=Workbench&display=swap" rel="stylesheet">
+
+    <style>
+
+        h1{
+            font-family: 'Workbench';
+            font-size: 45px;
+        }
+
+        p{
+            font-family: 'Open Sans';
+            font-size: 18px;
+        }
+
+        input{
+            font-family: 'Open Sans';
+            font-size: 18px;
+            height: 30px;
+        }
+
+        button{
+            font-family: 'Open Sans';
+            font-size: 15px;
+            padding: 5px;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        body{
+            margin-left: 25px;
+            margin-top: 25px;
+        }
+
+    </style>
+
+</head>
+<body>
+
+    <h1>Welcome To 8-Ball Pool!</h1>
+
+    <p>Enter the names for both players and hit play!</p>
+
+    <form action="/game.html" method="post">
+
+        <input id="player1Box" type="text" placeholder="Player 1" name="player1Name">
+        <input id="player2Box" type="text" placeholder="Player 2" name="player2Name">
+        <button onclick="play();">Play!</button>
+
+    </form>
+    
+</body>
+
+
+</html>
