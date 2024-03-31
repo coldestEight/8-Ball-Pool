@@ -67,8 +67,10 @@
 
             if (clicked == true) {
 
-                x = 25 * (cuex - (event.pageX-50))
-                y = 25 * (cuey - (event.pageY))
+                x = 5*(((cuex-9)*3.5) - ((event.pageX-100)*4.3))
+                y = 5*(cuey*3.5 - ((event.pageY-100)*4.3))
+
+                console.log(x + " " + y)
 
                 shoot(x, y)
             }
