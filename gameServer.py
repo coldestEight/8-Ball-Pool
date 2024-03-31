@@ -15,7 +15,7 @@ class gameServer(HTTPServer):
     high = 0
     low = 0
     playerTurn = 1
-    game = p.Game(None,"test","playerOne","playerTwo")
+    game = None
 
 class serverHandler(BaseHTTPRequestHandler):
 
@@ -26,8 +26,8 @@ class serverHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         url = urlparse(self.path)
-
-        if url.path in ["/game.html"]:
+        
+        if url.path in ["/index.html"]:
             fp = open('.' + url.path)
             content = fp.read()
 
@@ -38,7 +38,7 @@ class serverHandler(BaseHTTPRequestHandler):
 
             self.wfile.write(bytes(content, "utf-8"))
             fp.close()
-        
+
         elif url.path in ["/setupBoard"]:
 
             if self.server.table == None:
@@ -209,11 +209,74 @@ class serverHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(contentJSON.encode("utf-8"))
 
+        elif url.path in ["/reset"]:
+            self.server.table = p.Table()
+            displace = 480
+
+            for i in range(1,16):
+                if i <= 5:
+                    pos = p.Coordinate(displace + i*70 + nudge(), displace+nudge())
+                
+                elif i <= 9:
+                    pos = p.Coordinate(displace + 30 + (i-5)*70 + nudge(), displace + 60 + nudge())
+                
+                elif i <= 12:
+                    pos = p.Coordinate(displace + 60 + (i-9)*70 + nudge(), displace + 120 + nudge())
+
+                elif i <= 14:
+                    pos = p.Coordinate(displace + 90 + (i-12)*70 + nudge(), displace + 180 + nudge())
+
+                elif i == 15:
+                    pos = p.Coordinate(displace + 120 + (i-14)*70 + nudge(), displace + 240 + nudge())
+
+                
+                b = p.StillBall(i, pos)
+                self.server.table.add_object(b)
+
+            pos = p.Coordinate(displace + 120 + 60, 2000)
+            b = p.StillBall(0,pos)
+            self.server.table.add_object(b)
+            self.server.playerTurn = 1
+            self.server.high = 0
+            self.server.low = 0
+
+            content ={
+                "player1Name": self.server.game.player1Name,
+                "player2Name": self.server.game.player2Name,
+                "turn": self.server.playerTurn,
+                "table": self.server.table.svg()
+            }
+
+            contentJSON = json.dumps(content)
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/JSON")
+            self.end_headers()
+            self.wfile.write(contentJSON.encode("utf-8"))
                     
     def do_POST(self):
         url = urlparse(self.path)
 
-        if url.path in ["/shoot"]:
+        if url.path in ["/game.html"]:
+            form = cgi.FieldStorage( fp=self.rfile,
+                                     headers=self.headers,
+                                     environ = { 'REQUEST_METHOD': 'POST',
+                                                 'CONTENT_TYPE': self.headers['Content-Type'],})
+            
+            self.server.game = p.Game(None,"MyGame",form["player1Name"].value,form["player2Name"].value)
+
+            fp = open('.' + url.path)
+            content = fp.read()
+
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.send_header("Content-length", len(content))
+            self.end_headers()
+
+            self.wfile.write(bytes(content, "utf-8"))
+            fp.close()
+
+        elif url.path in ["/shoot"]:
 
             data = cgi.FieldStorage(fp=self.rfile, headers=self.headers,environ={'REQUEST_METHOD': 'POST'})
             velx = float(data["velx"].value)

@@ -4,6 +4,11 @@
 <head>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&family=Workbench&display=swap" rel="stylesheet">
+
     <style>
         .svg-container {
             width: 500px;
@@ -12,21 +17,36 @@
             float: left;
         }
 
+        p{
+            font-size: 20px;
+        }
+
         .menu{
             float: left;
-            padding: 15px;
+            padding: 50px;
+            font-family: 'Open Sans';
         }
 
         .turn-indicator{
             font-size: 25px;
         }
+
+        button{
+
+            font-family: 'Open Sans';
+            font-size: 15px;
+            width: 90px;
+            height: 50px;
+            padding: auto;
+        }
+
+
     </style>
 
     <script>
 
         track = false
         clicked = false
-        processing = false
         cuex = 0
         cuey = 0
         time = 0
@@ -47,8 +67,8 @@
 
             if (clicked == true) {
 
-                x = 15 * (cuex - (event.pageX-50))
-                y = 15 * (cuey - (event.pageY-50))
+                x = 25 * (cuex - (event.pageX-50))
+                y = 25 * (cuey - (event.pageY))
 
                 shoot(x, y)
             }
@@ -91,7 +111,6 @@
             }
         }
 
-
         function setupBoard() {
             value = $.get("/setupBoard")
             value.then(function (v) {
@@ -111,31 +130,48 @@
             if(playerTurn == 1){
                 if(high == 1){
 
-                    text = player1Name + "(High)"
+                    text = player1Name + "'s Turn (High)"
                 }
                 else if (low == 1){
 
-                    text = player1Name + "(Low)"
+                    text = player1Name + "'s Turn (Low)"
                 }
                 else{
-                    text  = player1Name
+                    text  = player1Name + "'s Turn"
                 }
             }
             else{
                 if(high == 2){
 
-                    text = player2Name + "(High)"
+                    text = player2Name + "'s Turn (High)"
                 }
                 else if (low == 2){
 
-                    text = player2Name + "(Low)"
+                    text = player2Name + "'s Turn (Low)"
                 }
                 else{
-                    text  = player2Name
+                    text  = player2Name +"'s Turn"
                 }
             }
 
             $("p.turn-indicator").html(text)
+        }
+
+        function reset(){
+            $.get("/reset").then(function(v){
+
+                data = JSON.parse(v)
+
+                player1Name = data.player1Name
+                player2Name = data.player2Name
+                playerTurn = data.turn
+
+                $("div.svg-container").html(data.table) 
+                high = 0
+                low = 0 
+                setTurn()
+            })
+
         }
 
         function shoot(xvel, yvel) {
@@ -150,7 +186,6 @@
             }).done(function (v) {
 
                 setShotID(v)
-                console.log("shotID " + shotID)
 
                 $.ajax({
                     url: "/frames",
@@ -160,8 +195,6 @@
                 }).done(function (v) {
 
                     setFrames(v)
-                    console.log("numFrames: "+numFrames)
-
 
                     $.ajax({
                         url: "/anim",
@@ -171,7 +204,6 @@
 
                         data = JSON.parse(v)
 
-                        console.log(data)
                         for (let i = 0; i < data.frameCount; i++) {
                             setTimeout(function () { $("div.svg-container").html(data.frames[i]) }, i * 30)
                         }
@@ -183,10 +215,43 @@
                             type: "GET"
                             }).done(function(v){
                                 tableData = JSON.parse(v)
-                                console.log(tableData)
                                 playerTurn = tableData.turn
                                 high = tableData.high
                                 low = tableData.low
+                                ballList = tableData.ballList
+                                gameOver = tableData.gameOver
+                                BALL_COLOURS = ["WHITE","YELLOW","BLUE","RED","PURPLE","ORANGE","GREEN","BROWN","BLACK","KHAKI","LIGHTBLUE","PINK","MEDIUMPURPLE","LIGHTSALMON","LIGHTGREEN","SANDYBROWN"]
+
+                                highSVG = "<rect width=\"765\" height=\"15\" x=\"5\" y=\"-5\"  rx=\"7\" ry = \"7\" fill=\"#45332C\"></rect>" 
+                                lowSVG = "<rect width=\"765\" height=\"15\" x=\"5\" y=\"-5\"  rx=\"7\" ry = \"7\" fill=\"#45332C\"></rect>" 
+                                highCount = 0
+                                lowCount = 0
+
+                                $("[id=\"displayBall\"]").remove()
+
+                                for(let i = 0; i < ballList.length; i++){
+
+                                    ballsvg = ""
+
+                                    if(ballList[i] < 8 && ballList[i] > 0){
+
+                                        ballsvg = "<circle id=\"displayBall\" cx=\""+ (55+(110*lowCount)) +"\" cy=\"-50\" r=\"50\" fill=\""+ BALL_COLOURS[ballList[i]] +"\"></circle>"
+                                        lowSVG += ballsvg
+                                        lowCount++
+                                    }
+                                    else if(ballList[i] > 8){
+
+                                        ballsvg = "<circle id=\"displayBall\" cx=\""+ (55+(110*highCount)) +"\" cy=\"-50\" r=\"50\" fill=\""+ BALL_COLOURS[ballList[i]]+"\"></circle>"
+                                        highSVG += ballsvg
+                                        highCount++
+                                    }
+
+                                }
+
+                                $("[class=\"high\"]").html(highSVG)
+                                $("[class=\"low\"]").html(lowSVG)
+
+                                checkWin(gameOver)
                                 setTurn()
                                 $("div.svg-container").html(tableData.table)    
                             })}, data.frameCount*30);
@@ -194,6 +259,22 @@
                     })
                 })
             })
+        }
+
+        function checkWin(gameOver){
+
+            if(gameOver != 0){
+
+                if(gameOver == 1){
+
+                    alert("Game Over: " + player1Name + " wins!")
+                }
+                else{
+
+                    alert("Game Over: " + player2Name + " wins!")
+                }
+            }
+
         }
 
         function setShotID(sID) {
@@ -205,7 +286,6 @@
 
             numFrames = fr
         }
-
 
     </script>
 
@@ -220,12 +300,36 @@
         
         <p class="turn-indicator">Player Name's Turn! </p>
 
-        <p>High Balls Remaining: img</p>
+        <p>High Balls Remaining:</p>
 
-        <p>Low Balls Remaining: img</p>
+        <svg class="high" width="250px" height="100px" viewBox="0 0 775 100" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+            <rect width="765" height="15" x="5" y="-5"  rx="7" ry = "7" fill="#45332C"></rect> 
+            <circle id = "displayBall" cx="55" cy="-50" r="50" fill="KHAKI"></circle>
+           <circle id = "displayBall" cx="165" cy="-50" r="50" fill="LIGHTBLUE"></circle>
+           <circle  id = "displayBall" cx="275" cy="-50" r="50" fill="PINK"></circle>
+            <circle  id = "displayBall" cx="385" cy="-50" r="50" fill="MEDIUMPURPLE"></circle>
+             <circle  id = "displayBall" cx="495" cy="-50" r="50" fill="LIGHTSALMON"></circle>
+              <circle id = "displayBall" cx="605" cy="-50" r="50" fill="LIGHTGREEN"></circle>
+               <circle id = "displayBall" cx="715" cy="-50" r="50" fill="SANDYBROWN"></circle>
+        </svg>
 
-        <button>Reset</button>
-        <button>Go Back</button>
+        <p>Low Balls Remaining:</p>
+
+        <svg class="low" width="250px" height="100px" viewBox="0 0 775 100" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+            <rect width="765" height="15" x="5" y="-5"  rx="7" ry = "7" fill="#45332C"></rect> 
+            <circle id = "displayBall" cx="55" cy="-50" r="50" fill="YELLOW"></circle>
+           <circle id = "displayBall" cx="165" cy="-50" r="50" fill="BLUE"></circle>
+           <circle id = "displayBall" cx="275" cy="-50" r="50" fill="RED"></circle>
+            <circle id = "displayBall" cx="385" cy="-50" r="50" fill="PURPLE"></circle>
+             <circle id = "displayBall" cx="495" cy="-50" r="50" fill="ORANGE"></circle>
+              <circle id = "displayBall" cx="605" cy="-50" r="50" fill="GREEN"></circle>
+               <circle id = "displayBall" cx="715" cy="-50" r="50" fill="BROWN"></circle>
+           </svg>
+
+           <p></p>
+
+        <button onclick="reset();">Reset</button>
+        <button onclick="window.location.href='/index.html'">Go Back</button>
 
     </div>
         

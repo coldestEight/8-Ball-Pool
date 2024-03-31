@@ -45,7 +45,7 @@ BALL_COLOURS = [
     "GREEN",
     "BROWN",
     "BLACK",
-    "LIGHTYELLOW",
+    "KHAKI",
     "LIGHTBLUE",
     "PINK",             # no LIGHTRED
     "MEDIUMPURPLE",     # no LIGHTPURPLE
@@ -118,10 +118,10 @@ class RollingBall( phylib.phylib_object ):
 
     def svg(self):
         this = self.obj.rolling_ball
-        if this.number == 0:
-            return """ <circle onmousedown="clickBall()" id = "qball" cx="%d" cy="%d" r="%d" fill="%s" />\n""" % (this.pos.x, this.pos.y, BALL_RADIUS, BALL_COLOURS[this.number])  
-        else:  
-            return """ <circle cx="%d" cy="%d" r="%d" fill="%s" />\n""" % (this.pos.x, this.pos.y, BALL_RADIUS, BALL_COLOURS[this.number])
+        # if this.number == 0:
+        #     return """ <circle onmousedown="clickBall()" id = "qball" cx="%d" cy="%d" r="%d" fill="%s" />\n""" % (this.pos.x, this.pos.y, BALL_RADIUS, BALL_COLOURS[this.number])  
+        # else:  
+        return """ <circle cx="%d" cy="%d" r="%d" fill="%s" />\n""" % (this.pos.x, this.pos.y, BALL_RADIUS, BALL_COLOURS[this.number])
 
 
 ################################################################################
